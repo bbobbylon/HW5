@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NYT Best Seller</string>
+    <string name="attribution">Data provided by the NY Times</string>
+    <string name="download_error">Download Error</string>
+</resources>
