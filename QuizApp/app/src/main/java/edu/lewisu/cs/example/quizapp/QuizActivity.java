@@ -1,13 +1,25 @@
 package edu.lewisu.cs.example.quizapp;
 
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.TestLooperManager;
+import android.text.Html;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.InputStream;
+import java.lang.ref.WeakReference;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Scanner;
 
 public class QuizActivity extends AppCompatActivity {
 
@@ -93,7 +105,9 @@ public class QuizActivity extends AppCompatActivity {
 
 
     private void updateQuestion(){
-
+        DownloadQuestion downloadQuestion = new DownloadQuestion(this);
+        downloadQuestion.execute(QUESTION_URL);
+        answerTextView.setVisibility(View.INVISIBLE);
 
     }
 
@@ -164,4 +178,81 @@ public class QuizActivity extends AppCompatActivity {
             falseButton.setEnabled(true);
         }
     }
+    private static class DownloadQuestion extends AsyncTask<String, Void, Question>
+    {
+        private WeakReference<QuizActivity> activityReference;
+
+        @Override
+        protected Question doInBackground(String... strings) {
+            String jsonData = "";
+            HttpURLConnection urlConnection = null;
+
+
+            try{
+                URL url = new URL(strings[0]);
+                urlConnection = (HttpURLConnection) url.openConnection();
+                InputStream inputStream = urlConnection.getInputStream();
+
+                Scanner scanner = new Scanner(inputStream);
+                scanner.useDelimiter("\\A");
+
+                boolean hasInput = scanner .hasNext();
+                if(hasInput)
+                {
+                    jsonData = scanner.next();
+                }
+                else
+                {
+                    return null;
+                }
+
+                JSONObject results = new JSONObject(jsonData);
+                JSONArray questions = results.getJSONArray("results");
+                JSONObject questionObject = questions.getJSONObject(0);
+                String questionText = questionObject.getString("question");
+
+                Boolean correctAnswer =Boolean.parseBoolean(questionObject.getString("correct_answer"));
+
+                Question question = new Question(questionText, correctAnswer);
+                return question;
+            }catch(Exception ex)
+            {
+                Log.d(TAG,ex.toString());
+
+            }
+            finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+            }
+            return null;
+        }
+
+        DownloadQuestion(QuizActivity context)
+        {
+            activityReference = new WeakReference<>(context);
+        }
+
+        @Override
+        protected void onPostExecute(Question question) {
+            QuizActivity activity = activityReference.get();
+            if(activity == null || activity.isFinishing())
+            {
+                return;
+            }
+            TextView displayTextView = activity.findViewById(R.id.questionTextView);
+            activity.question = question;
+            if(question!=null)
+            {
+                displayTextView.setText(Html.fromHtml(question.getQuestionText()));
+
+            }
+            else
+            {
+                displayTextView.setText(activity.getResources().getString(R.string.download_error));
+
+            }
+        }
+    }
+
 }

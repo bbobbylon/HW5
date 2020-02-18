@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HW5</string>
+    <string name="attribution">This product uses the TMDb API but is not endorsed or certified by TMDb.</string>
+    <string name="download_error">Download Error</string>
+</resources>
