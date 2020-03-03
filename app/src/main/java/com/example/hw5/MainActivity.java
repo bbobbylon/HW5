@@ -1,41 +1,53 @@
 package com.example.hw5;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+//import android.support.v7.app.AppCompatActivity;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.TestLooperManager;
 import android.util.Log;
 import android.view.View;
-import android.view.textclassifier.TextLinks;
+import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.w3c.dom.Text;
 
-import java.io.InputStream;
 import java.lang.ref.WeakReference;
-import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Scanner;
-import java.util.jar.JarEntry;
+import java.util.ArrayList;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-
-public class MainActivity extends AppCompatActivity {
-    private final static String TAG = MainActivity.class.getSimpleName();
-    private final static String URL_STRING = "https://api.themoviedb.org/3/movie/now_playing?api_key=5aea6b8c5526b617ed3558cc63040698&language=en-US&page=1";
+public class MainActivity extends AppCompatActivity implements MovieAdapter.MovieAdapterOnClickHandler {
+    private static final String TAG = MainActivity.class.getSimpleName();
     private final String API_KEY = "5aea6b8c5526b617ed3558cc63040698";
+    private final static String URL_STRING = "https://api.themoviedb.org/3/movie/now_playing?api_key=5aea6b8c5526b617ed3558cc63040698&language=en-US&page=1";
+    private ProgressBar progressBar;
+    private MovieAdapter movieAdapter;
+
+
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        progressBar = findViewById(R.id.progress_bar);
+        RecyclerView recyclerView = findViewById(R.id.recycler_view);
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this,LinearLayoutManager.VERTICAL, false);
+        recyclerView.setLayoutManager(layoutManager);
+        movieAdapter = new MovieAdapter(this);
+        recyclerView.setAdapter(movieAdapter);
 
         //dont have to do this, can just do it as a string
         Uri.Builder builder = new Uri.Builder();
@@ -50,11 +62,19 @@ public class MainActivity extends AppCompatActivity {
 
         Uri tmdbMovies = builder.build();
         Log.d("url", tmdbMovies.toString());
-DownloadMovie downloadMovie = new DownloadMovie(this);
-downloadMovie.execute(tmdbMovies);
+        DownloadMovie downloadMovie = new DownloadMovie(this);
+        downloadMovie.execute(tmdbMovies);
 
     }
-    private static class DownloadMovie extends AsyncTask<Uri, Void, Movie>
+
+    @Override
+    public void onClick(Movie movie) {
+        Intent detailIntent = new Intent(this, MovieDetailActivity.class);
+        detailIntent.putExtra("movie", movie);
+        startActivity(detailIntent);
+    }
+
+    private static class DownloadMovie extends AsyncTask<Uri, Void, ArrayList<Movie> >
     {
         private WeakReference<MainActivity> activityWeakReference;
         public DownloadMovie(MainActivity mainActivity)
@@ -63,44 +83,19 @@ downloadMovie.execute(tmdbMovies);
         }
 
         @Override
-        protected Movie doInBackground(Uri... uris) {
+        protected void onPreExecute() {
+            MainActivity activity = activityWeakReference.get();
+            activity.progressBar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        protected ArrayList<Movie> doInBackground(Uri... uris) {
 
 
-            //I was not sure whether to use the string version or Uri builder, so i left string version in comments
 
-
-
-          /*  String jsonData = "";
-            HttpURLConnection urlConnection = null;
-            try
-            {
-                URL url = new URL(URL_STRING);
-                urlConnection = (HttpURLConnection)url.openConnection();
-                InputStream inputStream = urlConnection.getInputStream();
-                Scanner scanner = new Scanner(inputStream);
-                scanner.useDelimiter("\\A");
-
-                boolean hasInput = scanner.hasNext();
-                if(hasInput)
-                {
-                    jsonData = scanner.next();
-                }
-            }
-            catch(Exception ex)
-            {
-                Log.d(TAG,ex.getMessage());
-            }
-            finally
-            {
-                if(urlConnection !=null)
-                {
-                    urlConnection.disconnect();
-                }
-            }
-            return null;
-            */
             OkHttpClient client = new OkHttpClient();
             String jsonData = "";
+            ArrayList<Movie> movies= new ArrayList<>();
             try {
                 URL url = new URL(uris[0].toString());
                 Request.Builder builder = new Request.Builder();
@@ -118,19 +113,26 @@ downloadMovie.execute(tmdbMovies);
                     //I would like to implement a poster image of the movie instead of popularity.
                     String popularity;
                     String releaseDate;
+                    int numMovies = 10;
                     JSONObject results = new JSONObject(jsonData);
                     JSONArray movieList = results.getJSONArray("results");
-                    JSONObject movieObject = movieList.getJSONObject(1);
-                    title = movieObject.getString("title");
-                    vote_average = movieObject.getString("vote_average");
-                    overview = movieObject.getString("overview");
-                    popularity = movieObject.getString("popularity");
-                    releaseDate = movieObject.getString("release_date");
+                    if(movieList.length() < 10)
+                    {
+                        numMovies = movieList.length();
+                    }
 
-
-
-                    Movie movie = new Movie(title, vote_average, popularity, overview,releaseDate) ;
-                    return movie;
+                    for (int i =0; i<numMovies; i++)
+                    {
+                        JSONObject movieObject = movieList.getJSONObject(i);
+                        title = movieObject.getString("title");
+                        vote_average = movieObject.getString("vote_average");
+                        overview = movieObject.getString("overview");
+                        popularity = movieObject.getString("popularity");
+                        releaseDate = movieObject.getString("release_date");
+                        Movie movie = new Movie(title, vote_average, popularity, overview,releaseDate) ;
+                        movies.add(movie);
+                    }
+                    return movies;
 
                 }
 
@@ -143,42 +145,19 @@ downloadMovie.execute(tmdbMovies);
         }
 
         @Override
-        protected void onPostExecute(Movie movie) {
+        protected void onPostExecute(ArrayList<Movie> movies) {
             MainActivity activity = activityWeakReference.get();
             if(activity == null || activity.isFinishing())
             {
                 return;
             }
-            TextView titleTextView = activity.findViewById(R.id.titleTextView);
-
-            if (movie !=null)
+            activity.progressBar.setVisibility(View.GONE);
+            if(movies != null)
             {
-                titleTextView.setText(movie.getTitle());
-
-                TextView vote_averageTextView = activity.findViewById(R.id.vote_averageTextView);
-                vote_averageTextView.setText(movie.getVote_average());
-
-                TextView overviewTextView = activity.findViewById(R.id.overviewTextView);
-                overviewTextView.setText(movie.getOverview());
-
-                TextView popularityTextView = activity.findViewById(R.id.popularityTextView);
-                popularityTextView.setText(movie.getPopularity());
-
-                TextView releaseDateTextView = activity.findViewById(R.id.releaseDateTextView);
-                releaseDateTextView.setText(movie.getReleaseDate());
-
+                activity.movieAdapter.setMovieData(movies);
             }
-            else
-            {
-                titleTextView.setText(activity.getResources().getString(R.string.download_error));
-            }
+
         }
     }
 
-
-
-
-
-
 }
-

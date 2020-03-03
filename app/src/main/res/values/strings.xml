@@ -1,5 +1,7 @@
 <resources>
-    <string name="app_name">HW5</string>
+    <string name="app_name">Top Ranked Movies This Week</string>
     <string name="attribution">This product uses the TMDb API but is not endorsed or certified by TMDb.</string>
+   ////<string name="rank_title">%1$s %2$s  </string>
     <string name="download_error">Download Error</string>
 </resources>
+
